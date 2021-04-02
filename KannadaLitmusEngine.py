@@ -1,7 +1,8 @@
 import xml.etree.ElementTree as ET
 import sys
 
-class KannadaLitmusEngine():
+
+class KannadaLitmusEngine:
 
     def __init__(self):
         pass
