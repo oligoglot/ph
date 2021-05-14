@@ -3,17 +3,21 @@ import sys
 import re
 from io import StringIO
 
+
 class KannadaLitmusEngine:
 
     def __init__(self):
         self.noise_pattern = re.compile(r'===?[^=]+=?==')
         self.nonword_pattern = re.compile(r'\W')
         self.p_initials = re.compile('^(ಪ|ಪಾ|ಪಿ|ಪೀ|ಪು|ಪೂ|ಪೆ|ಪೇ|ಪೈ|ಪೊ|ಪೋ|ಪೌ)')
+        self.pa = re.compile('^ಪ')
         self.h_initials = re.compile('^(ಹ|ಹಾ|ಹಿ|ಹೀ|ಹು|ಹೂ|ಹೆ|ಹೇ|ಹೈ|ಹೊ|ಹೋ|ಹೌ)')
-        #self.load_titles()
+        self.ha = re.compile('^ಹ')
+        self.pertinent_words = set()
+        # self.load_titles()
 
     def load_titles(self):
-        with open ("data/knwiktionary-20210401-all-titles-in-ns0", "r") as title_f:
+        with open("data/knwiktionary-20210401-all-titles-in-ns0", "r") as title_f:
             self.titles = set(title_f.read().split('\n'))
 
     def parse_xml(self, f):
@@ -38,22 +42,47 @@ class KannadaLitmusEngine:
             if text:
                 if title:
                     title = title[0].text
-                    #text = title + ' ' + text
-                text = self.noise_pattern.sub(' ', text, re.MULTILINE | re.DOTALL)
-                text = re.sub(r'\W+', ' ', text)
-                pwords = set(list(filter(lambda w: self.p_initials.match(w), re.split('[\s\n]+', text))))
-                hwords = set(list(filter(lambda w: self.h_initials.match(w), re.split('[\s\n]+', text))))
-                words = set.union(pwords, hwords)
-                words.add(title)
-                return words
+                    text = title + ' ' + text
+                text = self.noise_pattern.sub(
+                    ' ', text, re.MULTILINE | re.DOTALL)
+                text = re.sub(
+                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(])+', ' ', text.lower())
+                words = re.split('[\s\n]+', text)
+                pwords = set()
+                hwords = set()
+                for word in words:
+                    if self.p_initials.match(word):
+                        self.pertinent_words.add(word)
+                        word = re.sub(self.pa, '', word, 1)
+                        pwords.add(word)
+                    elif self.h_initials.match(word):
+                        self.pertinent_words.add(word)
+                        word = re.sub(self.ha, '', word, 1)
+                        hwords.add(word)
+                phsynonyms = list(map(lambda suffix: (
+                    'ಪ' + suffix, 'ಹ' + suffix), set.intersection(pwords, hwords)))
+                return phsynonyms
         return []
 
 
 if __name__ == "__main__":
     f = "data/knwiktionary-20210401-pages-articles.xml"
     e = KannadaLitmusEngine()
+    pairs = set()
+    pairedwords = set()
     for doc in e.parse_xml(f):
         title, text = e.get_candidates(doc)
         syns = e.get_synonyms(title, text)
         if len(syns) > 0:
-            print(syns)
+            for pair in syns:
+                pairs.add(",".join(pair))
+                pairedwords.add(pair[0])
+                pairedwords.add(pair[1])
+    with open("phsynonyms.csv", "w") as synf:
+        for pair in pairs:
+            print(pair, file=synf)
+    with open("phuniverse.csv", "w") as unif, open("unpaired.csv", "w") as unpairedf:
+        for word in e.pertinent_words:
+            print(word, file=unif)
+            if word not in pairedwords:
+                print(word, file=unpairedf)
