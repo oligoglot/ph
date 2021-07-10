@@ -46,33 +46,41 @@ class KannadaLitmusEngine:
                 if title:
                     title = title[0].text
                     text = title + ' ' + text
-                text = self.noise_pattern.sub(
-                    ' ', text, re.MULTILINE | re.DOTALL)
-                text = re.sub(
-                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(])+', ' ', text.lower())
-                words = re.split('[\s\n]+', text)
-                pwords = set()
-                hwords = set()
-                for word in words:
-                    if self.p_initials.match(word):
-                        self.pertinent_words.add(word)
-                        word = re.sub(self.pa, '', word, 1)
-                        pwords.add(word)
-                    elif self.h_initials.match(word):
-                        self.hertinent_words.add(word)
-                        word = re.sub(self.ha, '', word, 1)
-                        hwords.add(word)
-                self.psuffixes.update(pwords)
-                self.hsuffixes.update(hwords)
+                text = self.preprocess_text(text)
+                pwords, hwords = self.get_phwords(text)
                 phsynonyms = list(map(lambda suffix: (
                     'ಪ' + suffix, 'ಹ' + suffix), set.intersection(pwords, hwords)))
                 return phsynonyms
         return []
 
+    def get_phwords(self, text):
+        words = re.split('[\s\n]+', text)
+        pwords = set()
+        hwords = set()
+        for word in words:
+            if self.p_initials.match(word):
+                self.pertinent_words.add(word)
+                word = re.sub(self.pa, '', word, 1)
+                pwords.add(word)
+            elif self.h_initials.match(word):
+                self.hertinent_words.add(word)
+                word = re.sub(self.ha, '', word, 1)
+                hwords.add(word)
+        self.psuffixes.update(pwords)
+        self.hsuffixes.update(hwords)
+        return pwords,hwords
 
-if __name__ == "__main__":
+    def preprocess_text(self, text):
+        text = self.noise_pattern.sub(
+                    ' ', text, re.MULTILINE | re.DOTALL)
+        text = re.sub(
+                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(])+', ' ', text.lower())
+            
+        return text
+
+
+def process_kn_wiktionary(e):
     f = "data/knwiktionary-20210401-pages-articles.xml"
-    e = KannadaLitmusEngine()
     pairs = set()
     pairedwords = set()
     for doc in e.parse_xml(f):
@@ -83,14 +91,19 @@ if __name__ == "__main__":
                 pairs.add(",".join(pair))
                 pairedwords.add(pair[0])
                 pairedwords.add(pair[1])
-    with open("phsynonyms.csv", "w") as synf:
+    return pairs,pairedwords
+
+if __name__ == "__main__":
+    e = KannadaLitmusEngine()
+    pairs, pairedwords = process_kn_wiktionary(e)
+    with open(r"out/phsynonyms.csv", "w") as synf:
         for pair in pairs:
             print(pair, file=synf)
-    with open("presumable_synonyms.csv", "w") as psynf:
+    with open(r"out/presumable_synonyms.csv", "w") as psynf:
         presumable_synonyms = e.psuffixes.intersection(e.hsuffixes)
         for suffix in presumable_synonyms:
             print('ಪ' + suffix + ',' + 'ಹ' + suffix, file=psynf)
-    with open("puniverse.csv", "w") as punif, open("huniverse.csv", "w") as hunif, open("unpaired.csv", "w") as unpairedf:
+    with open(r"out/puniverse.csv", "w") as punif, open(r"out/huniverse.csv", "w") as hunif, open(r"out/unpaired.csv", "w") as unpairedf:
         for word in e.pertinent_words:
             suffix = re.sub(e.pa, '', word)
             print(word + ',' + suffix, file=punif)
