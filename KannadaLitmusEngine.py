@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import sys
 import re
+import gzip
 from io import StringIO
 
 
@@ -79,8 +80,7 @@ class KannadaLitmusEngine:
         return text
 
 
-def process_kn_wiktionary(e):
-    f = "data/knwiktionary-20210401-pages-articles.xml"
+def process_kn_wiktionary(e, f=r"data/knwiktionary-20210401-pages-articles.xml"):
     pairs = set()
     pairedwords = set()
     for doc in e.parse_xml(f):
@@ -95,10 +95,16 @@ def process_kn_wiktionary(e):
 
 if __name__ == "__main__":
     e = KannadaLitmusEngine()
+    infile, corpus = sys.argv[1:3]
     pairs, pairedwords = process_kn_wiktionary(e)
     with open(r"out/phsynonyms.csv", "w") as synf:
         for pair in pairs:
             print(pair, file=synf)
+    if corpus!="wikt":
+        with gzip.open(infile, 'rt') as corpus_f:
+            for doc in corpus_f:
+                text = e.preprocess_text(doc)
+                e.get_phwords(text)
     with open(r"out/presumable_synonyms.csv", "w") as psynf:
         presumable_synonyms = e.psuffixes.intersection(e.hsuffixes)
         for suffix in presumable_synonyms:
