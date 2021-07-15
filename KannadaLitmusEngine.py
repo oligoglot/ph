@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import sys
 import re
 import gzip
+import os
 from io import StringIO
 from collections import Counter
 
@@ -98,7 +99,10 @@ if __name__ == "__main__":
     e = KannadaLitmusEngine()
     infile, corpus = sys.argv[1:3]
     pairs, pairedwords = process_kn_wiktionary(e)
-    with open(r"out/phsynonyms.csv", "w") as synf:
+    outpath = 'out/' + corpus + '/'
+    if not os.path.isdir(outpath):
+        os.mkdir(outpath)
+    with open(outpath + "phsynonyms.csv", "w") as synf:
         for pair in pairs:
             print(pair, file=synf)
     if corpus!="wikt":
@@ -106,13 +110,13 @@ if __name__ == "__main__":
             for doc in corpus_f:
                 text = e.preprocess_text(doc)
                 e.get_phwords(text)
-    with open(r"out/presumable_synonyms.csv", "w") as psynf:
+    with open(outpath + "presumable_synonyms.csv", "w") as psynf:
         presumable_synonyms = e.psuffixes & e.hsuffixes
         for suffix in presumable_synonyms:
             pcount = e.psuffixes[suffix]
             hcount = e.hsuffixes[suffix]
             print(','.join(('ಪ' + suffix, str(pcount), 'ಹ' + suffix, str(hcount), str(round((pcount-hcount)/(pcount+hcount),5)))), file=psynf)
-    with open(r"out/puniverse.csv", "w") as punif, open(r"out/huniverse.csv", "w") as hunif, open(r"out/unpaired.csv", "w") as unpairedf:
+    with open(outpath + "puniverse.csv", "w") as punif, open(outpath + "huniverse.csv", "w") as hunif, open(outpath + "unpaired.csv", "w") as unpairedf:
         for word, count in e.pertinent_words.most_common():
             suffix = re.sub(e.pa, '', word)
             print(word + ',' + suffix + ',' + str(count), file=punif)
