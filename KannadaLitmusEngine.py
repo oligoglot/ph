@@ -3,6 +3,7 @@ import sys
 import re
 import gzip
 from io import StringIO
+from collections import Counter
 
 
 class KannadaLitmusEngine:
@@ -14,10 +15,10 @@ class KannadaLitmusEngine:
         self.pa = re.compile('^ಪ')
         self.h_initials = re.compile('^(ಹ|ಹಾ|ಹಿ|ಹೀ|ಹು|ಹೂ|ಹೆ|ಹೇ|ಹೈ|ಹೊ|ಹೋ|ಹೌ)')
         self.ha = re.compile('^ಹ')
-        self.pertinent_words = set()
-        self.hertinent_words = set()
-        self.psuffixes = set()
-        self.hsuffixes = set()
+        self.pertinent_words = Counter()
+        self.hertinent_words = Counter()
+        self.psuffixes = Counter()
+        self.hsuffixes = Counter()
         # self.load_titles()
 
     def load_titles(self):
@@ -50,32 +51,32 @@ class KannadaLitmusEngine:
                 text = self.preprocess_text(text)
                 pwords, hwords = self.get_phwords(text)
                 phsynonyms = list(map(lambda suffix: (
-                    'ಪ' + suffix, 'ಹ' + suffix), set.intersection(pwords, hwords)))
+                    'ಪ' + suffix, 'ಹ' + suffix), pwords & hwords))
                 return phsynonyms
         return []
 
     def get_phwords(self, text):
-        words = re.split('[\s\n]+', text)
-        pwords = set()
-        hwords = set()
+        words = text.split()
+        psuffixes = Counter()
+        hsuffixes = Counter()
         for word in words:
             if self.p_initials.match(word):
-                self.pertinent_words.add(word)
-                word = re.sub(self.pa, '', word, 1)
-                pwords.add(word)
+                self.pertinent_words[word] += 1
+                suffix = re.sub(self.pa, '', word, 1)
+                psuffixes[suffix] += 1
             elif self.h_initials.match(word):
-                self.hertinent_words.add(word)
-                word = re.sub(self.ha, '', word, 1)
-                hwords.add(word)
-        self.psuffixes.update(pwords)
-        self.hsuffixes.update(hwords)
-        return pwords,hwords
+                self.hertinent_words[word] += 1
+                suffix = re.sub(self.ha, '', word, 1)
+                hsuffixes[suffix] += 1
+        self.psuffixes.update(psuffixes)
+        self.hsuffixes.update(hsuffixes)
+        return psuffixes,hsuffixes
 
     def preprocess_text(self, text):
         text = self.noise_pattern.sub(
                     ' ', text, re.MULTILINE | re.DOTALL)
         text = re.sub(
-                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(])+', ' ', text.lower())
+                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(\.\,])+', ' ', text.lower())
             
         return text
 
@@ -106,17 +107,19 @@ if __name__ == "__main__":
                 text = e.preprocess_text(doc)
                 e.get_phwords(text)
     with open(r"out/presumable_synonyms.csv", "w") as psynf:
-        presumable_synonyms = e.psuffixes.intersection(e.hsuffixes)
+        presumable_synonyms = e.psuffixes & e.hsuffixes
         for suffix in presumable_synonyms:
-            print('ಪ' + suffix + ',' + 'ಹ' + suffix, file=psynf)
+            pcount = e.psuffixes[suffix]
+            hcount = e.hsuffixes[suffix]
+            print(','.join(('ಪ' + suffix, str(pcount), 'ಹ' + suffix, str(hcount), str(round((pcount-hcount)/(pcount+hcount),5)))), file=psynf)
     with open(r"out/puniverse.csv", "w") as punif, open(r"out/huniverse.csv", "w") as hunif, open(r"out/unpaired.csv", "w") as unpairedf:
-        for word in e.pertinent_words:
+        for word, count in e.pertinent_words.most_common():
             suffix = re.sub(e.pa, '', word)
-            print(word + ',' + suffix, file=punif)
+            print(word + ',' + suffix + ',' + str(count), file=punif)
             if word not in pairedwords and suffix not in presumable_synonyms:
-                print(word, file=unpairedf)
-        for word in e.hertinent_words:
+                print(word + ',' + str(count), file=unpairedf)
+        for word, count in e.hertinent_words.most_common():
             suffix = re.sub(e.ha, '', word)
-            print(word + ',' + suffix, file=hunif)
+            print(word + ',' + suffix + ',' + str(count), file=hunif)
             if word not in pairedwords and suffix not in presumable_synonyms:
-                print(word, file=unpairedf)
+                print(word + ',' + str(count), file=unpairedf)
