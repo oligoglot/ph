@@ -71,14 +71,14 @@ class KannadaLitmusEngine:
                 hsuffixes[suffix] += 1
         self.psuffixes.update(psuffixes)
         self.hsuffixes.update(hsuffixes)
-        return psuffixes,hsuffixes
+        return psuffixes, hsuffixes
 
     def preprocess_text(self, text):
         text = self.noise_pattern.sub(
-                    ' ', text, re.MULTILINE | re.DOTALL)
+            ' ', text, re.MULTILINE | re.DOTALL)
         text = re.sub(
-                    r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(\.\,])+', ' ', text.lower())
-            
+            r'([a-z]|[\{\}\<\>\[\]\|\-\:\'\;\)\(\.\,])+', ' ', text.lower())
+
         return text
 
 
@@ -93,7 +93,8 @@ def process_kn_wiktionary(e, f=r"data/knwiktionary-20210401-pages-articles.xml")
                 pairs.add(",".join(pair))
                 pairedwords.add(pair[0])
                 pairedwords.add(pair[1])
-    return pairs,pairedwords
+    return pairs, pairedwords
+
 
 if __name__ == "__main__":
     e = KannadaLitmusEngine()
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     with open(outpath + "phsynonyms.csv", "w") as synf:
         for pair in pairs:
             print(pair, file=synf)
-    if corpus!="wikt":
+    if corpus != "wikt":
         with gzip.open(infile, 'rt') as corpus_f:
             for doc in corpus_f:
                 text = e.preprocess_text(doc)
@@ -115,7 +116,8 @@ if __name__ == "__main__":
         for suffix in presumable_synonyms:
             pcount = e.psuffixes[suffix]
             hcount = e.hsuffixes[suffix]
-            print(','.join(('ಪ' + suffix, str(pcount), 'ಹ' + suffix, str(hcount), str(round((pcount-hcount)/(pcount+hcount),5)))), file=psynf)
+            print(','.join(('ಪ' + suffix, str(pcount), 'ಹ' + suffix, str(hcount),
+                  str(round((pcount-hcount)/(pcount+hcount), 5)))), file=psynf)
     with open(outpath + "puniverse.csv", "w") as punif, open(outpath + "huniverse.csv", "w") as hunif, open(outpath + "unpaired.csv", "w") as unpairedf:
         for word, count in e.pertinent_words.most_common():
             suffix = re.sub(e.pa, '', word)
